@@ -1,78 +1,73 @@
 import path from 'path'
-import AdminJS from 'adminjs'
-import AdminJSExpress from '@adminjs/express'
+import AdminJS, { ComponentLoader } from 'adminjs'
 import express from 'express'
 import mongoose from 'mongoose'
 import * as AdminJSMongoose from '@adminjs/mongoose'
-import { Category } from './models/category.model.js'
-import { User } from './models/user.model.js'
+import { expressAuthenticatedRouter } from './configs/setup.js'
+import adminOptions from './configs/admin-options.js'
 import 'dotenv/config'
+
 
 const PORT = process.env.PORT || 5000;
 
+const dashboardHandler = async (req, res) => {
+    try {
+        // Fetch data for your dashboard (e.g., from MongoDB)
+        const userCount = await mongoose.model('User').countDocuments();
+        const adminCount = await mongoose.model('User').countDocuments({ role: 'admin' });
+
+        res.json({ message: 'Welcome to the Admin Dashboard', userCount, adminCount });
+    } catch (error) {
+        console.error('Error in dashboard handler:', error);
+        res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+};
+
+const componentLoader = new ComponentLoader();
+const __dirname = path.resolve();
+const Components = {
+    Dashboard: componentLoader.add('Dashboard', path.join(__dirname, '/adminjs-components/dashboard.jsx')),
+};
+
 const start = async () => {
-    const app = express()
+    const app = express();
+
+    // Serve static files from the "public" folder
+    const __dirname = path.resolve(); 
+    app.use(express.static(path.join(__dirname, 'public'))); 
 
 
-    //   Addtapter Code :
+    // Adapter Code :
     AdminJS.registerAdapter({
         Resource: AdminJSMongoose.Resource,
         Database: AdminJSMongoose.Database,
     })
-    await mongoose.connect(process.env.MONGO_URI)
-    const adminOptions = {
-        // We pass Category to `resources`
-        resources: [
-            {
-                resource: Category,
-                options: {
-                    listProperties: ['_id', 'title'],
-                    properties :{
-                        title:{
-                            id: "Category Name"
-                        },
-                        createdAt: { isVisible: { list: false, show: true, edit: false, filter: true } },
-                        updatedAt: { isVisible: { list: false, show: true, edit: false, filter: false } },
-                    }
-                },
-            },
-            {
-                resource: User,
-                
-                options: {
-                    id: "users",
-                    icon: 'Grid',
-                    listProperties: ['_id', 'name', 'email', 'role', 'isAdmin'],
-                    editProperties: ['name', 'email', 'role', 'isAdmin'],
-                    showProperties: ['_id', 'name', 'email', 'role', 'isAdmin'],
-                    filterProperties: ['role', 'isAdmin'],
-                },
-            }
-        ],
-        branding: {
-            companyName: 'Dashboard | AdminJS',
-            softwareBrothers: false,
-            withMadeWithLove: false,
-            favicon: '/bed.png',
-            logo: '/bed.png',
+    // Connect to MongoDB::
+    await mongoose.connect(process.env.MONGO_URI);
 
-        }
-    }
-    // Please note that some plugins don't need you to create AdminJS instance manually,
-    // instead you would just pass `adminOptions` into the plugin directly,
-    // an example would be "@adminjs/hapi"
-    const admin = new AdminJS(adminOptions)
 
-    const adminRouter = AdminJSExpress.buildRouter(admin)
+    // Create AdminJS instance::
+    const admin = new AdminJS({
+        ...adminOptions,
+        dashboard: {
+            component: Components.Dashboard,
+            handler: dashboardHandler, // Assign the handler here
+        },
+    })
+    admin.watch()
+
+    const adminRouter = expressAuthenticatedRouter(admin)
     app.use(admin.options.rootPath, adminRouter)
 
 
-    // Serve static files from the "public" folder
-    const __dirname = path.resolve(); // Get the current directory
-    app.use(express.static(path.join(__dirname, 'public'))); // Serve the "public" directory
+
 
     app.get('/', (req, res) => {
         res.send('Hello World!')
+    });
+
+    app.get('*', (req, res) => {
+        res.send('404! This is an invalid URL.')
     })
 
     app.listen(PORT, () => {

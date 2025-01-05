@@ -6,9 +6,7 @@
     // Install Dev-Dependencies :
     yarn add nodemon
 ```
-
-### README.md
-
+---
 ```markdown
 # Admin JS Template
 
@@ -89,14 +87,3 @@ Ensure you have the following installed on your machine:
 ### Dev Dependencies:
 - **[nodemon](https://www.npmjs.com/package/nodemon)**
 
----
-
-## Customization
-
-To modify the admin panel:
-
-1. Extend the AdminJS resources.
-2. Add custom actions, layouts, and themes.
-3. Update `index.js` to include additional routes, middleware, or functionality.
-
----
